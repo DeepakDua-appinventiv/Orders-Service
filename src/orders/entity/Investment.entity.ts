@@ -1,25 +1,21 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { User } from '../../user-management/src/users/entity/users.entity';
-import { Share } from '../../shares-management/entity/shares.entity'
+import { User } from '../../../../user-management/src/users/entity/users.entity';
+import { Share } from '../../../../shares-management/entity/shares.entity'
 
 @Schema({ timestamps: true })
 export class Investment extends Document {
   @Prop({ type: Types.ObjectId, ref:() => User })
-  user: Types.ObjectId;
+  userId: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref:() => Share })
-  company: Types.ObjectId
+  companyId: Types.ObjectId
 
   @Prop({
-    type: [{
-        shareId: { type: Types.ObjectId, ref: 'Share' },
-  }],
+    type: [Types.ObjectId],
     default: [],
   })
-  myShares: Array<{
-    shareId: Types.ObjectId;
-  }>;
+  myShares: Types.ObjectId[];
 
   @Prop()
   totalInvestment: number;
