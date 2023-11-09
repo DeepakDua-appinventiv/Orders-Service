@@ -1,14 +1,12 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { User } from '../../../../user-management/src/users/entity/users.entity';
-import { Share } from '../../../../shares-management/entity/shares.entity'
 
 @Schema({ timestamps: true })
 export class SellOrders extends Document {
-  @Prop({ type: Types.ObjectId, ref:() => User })
+  @Prop({ type: Types.ObjectId })
   userId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref:() => Share })
+  @Prop({ type: Types.ObjectId })
   companyId: Types.ObjectId;
 
   @Prop({ type: Number }) 

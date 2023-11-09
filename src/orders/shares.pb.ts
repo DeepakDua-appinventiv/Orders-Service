@@ -4,39 +4,58 @@ import { Observable } from "rxjs";
 
 export const protobufPackage = "shares";
 
-/** Get Share */
+/** Get Shares of a company */
 export interface Share {
-  id: string;
+  userId: string;
+  companyId: string;
+  askPrice: number;
+  pendingShares: string[];
+}
+
+/** Get Company */
+export interface Company {
   name: string;
-  exchange: string;
-  currentPrice: number;
-  quantity: number;
+  industry: string;
 }
 
 export interface GetShareRequest {
-  userId: string;
-  name: string;
+  companyId: string;
 }
 
 export interface GetShareResponse {
   status: number;
-  shares: Share | undefined;
+  shares: Share[];
+  error: string[];
+}
+
+export interface GetCompanyRequest {
+}
+
+export interface GetCompanyResponse {
+  status: number;
+  companies: Company[];
   error: string[];
 }
 
 export const SHARES_PACKAGE_NAME = "shares";
 
 export interface SharesServiceClient {
+  searchCompany(request: GetCompanyRequest): Observable<GetCompanyResponse>;
+
   getShare(request: GetShareRequest): Observable<GetShareResponse>;
 }
 
 export interface SharesServiceController {
+  searchCompany(
+    request: GetCompanyRequest,
+  ): Promise<GetCompanyResponse> | Observable<GetCompanyResponse> | GetCompanyResponse;
+
   getShare(request: GetShareRequest): Promise<GetShareResponse> | Observable<GetShareResponse> | GetShareResponse;
 }
 
 export function SharesServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["getShare"];
+    const grpcMethods: string[] = ["searchCompany", "getShare"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("SharesService", method)(constructor.prototype[method], method, descriptor);

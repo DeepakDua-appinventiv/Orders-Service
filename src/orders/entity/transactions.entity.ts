@@ -8,12 +8,12 @@ enum OrderTypeEnum {
 
 @Schema({ timestamps: true })
 export class Transactions extends Document {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId })
   user: Types.ObjectId;
 
   @Prop({
     type: [{
-        shareId: { type: Types.ObjectId, ref: 'Share' },
+        shareId: { type: Types.ObjectId },
     }],
     default: [],
 })

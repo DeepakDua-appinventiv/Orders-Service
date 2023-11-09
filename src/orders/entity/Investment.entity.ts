@@ -1,14 +1,12 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { User } from '../../../../user-management/src/users/entity/users.entity';
-import { Share } from '../../../../shares-management/entity/shares.entity'
 
 @Schema({ timestamps: true })
-export class Investment extends Document {
-  @Prop({ type: Types.ObjectId, ref:() => User })
+export class Investments extends Document {
+  @Prop({ type: Types.ObjectId })
   userId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref:() => Share })
+  @Prop({ type: Types.ObjectId })
   companyId: Types.ObjectId
 
   @Prop({
@@ -21,4 +19,4 @@ export class Investment extends Document {
   totalInvestment: number;
 }
 
-export const InvestmentSchema = SchemaFactory.createForClass(Investment);
+export const InvestmentSchema = SchemaFactory.createForClass(Investments);
