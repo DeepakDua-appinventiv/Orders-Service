@@ -12,13 +12,31 @@ export interface Share {
   pendingShares: string[];
 }
 
+export interface Investment {
+  userId: string;
+  companyId: string;
+  myShares: string[];
+  totalInvestment: number;
+}
+
 export interface GetShareRequest {
+  userId: string;
   companyId: string;
 }
 
 export interface GetShareResponse {
   status: number;
   shares: Share[];
+  error: string[];
+}
+
+export interface GetInvestmentRequest {
+  userId: string;
+}
+
+export interface GetInvestmentResponse {
+  status: number;
+  investments: Investment[];
   error: string[];
 }
 
@@ -62,7 +80,6 @@ export interface GetBalanceResponse {
 export interface UpdateBalanceRequest {
   userId: string;
   walletAmount: number;
-  serviceName: string;
 }
 
 export interface UpdateBalanceResponse {
@@ -77,6 +94,8 @@ export interface OrdersServiceClient {
 
   sellShare(request: SellShareRequest): Observable<SellShareResponse>;
 
+  getMyInvestment(request: GetInvestmentRequest): Observable<GetInvestmentResponse>;
+
   buyShare(request: BuyShareRequest): Observable<BuyShareResponse>;
 
   getBalance(request: GetBalanceRequest): Observable<GetBalanceResponse>;
@@ -88,6 +107,10 @@ export interface OrdersServiceController {
   getShare(request: GetShareRequest): Promise<GetShareResponse> | Observable<GetShareResponse> | GetShareResponse;
 
   sellShare(request: SellShareRequest): Promise<SellShareResponse> | Observable<SellShareResponse> | SellShareResponse;
+
+  getMyInvestment(
+    request: GetInvestmentRequest,
+  ): Promise<GetInvestmentResponse> | Observable<GetInvestmentResponse> | GetInvestmentResponse;
 
   buyShare(request: BuyShareRequest): Promise<BuyShareResponse> | Observable<BuyShareResponse> | BuyShareResponse;
 
@@ -102,7 +125,14 @@ export interface OrdersServiceController {
 
 export function OrdersServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["getShare", "sellShare", "buyShare", "getBalance", "updateBalance"];
+    const grpcMethods: string[] = [
+      "getShare",
+      "sellShare",
+      "getMyInvestment",
+      "buyShare",
+      "getBalance",
+      "updateBalance",
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("OrdersService", method)(constructor.prototype[method], method, descriptor);

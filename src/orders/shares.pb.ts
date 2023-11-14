@@ -19,6 +19,7 @@ export interface Company {
 }
 
 export interface GetShareRequest {
+  userId: string;
   companyId: string;
 }
 
@@ -29,6 +30,7 @@ export interface GetShareResponse {
 }
 
 export interface GetCompanyRequest {
+  name: string;
 }
 
 export interface GetCompanyResponse {

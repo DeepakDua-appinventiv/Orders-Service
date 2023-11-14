@@ -1,6 +1,6 @@
 import { Controller, Inject } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
-import { ORDERS_SERVICE_NAME, SellShareRequest, SellShareResponse, BuyShareRequest, BuyShareResponse, GetShareResponse, GetShareRequest } from './orders.pb';
+import { ORDERS_SERVICE_NAME, SellShareRequest, SellShareResponse, BuyShareRequest, BuyShareResponse, GetShareResponse, GetShareRequest, GetInvestmentResponse, GetInvestmentRequest } from './orders.pb';
 import { OrdersService } from './orders.service';
 
 @Controller('orders')
@@ -14,10 +14,15 @@ export class OrdersController {
         return this.service.retrieveShares(payload);
     }
 
-    // @GrpcMethod(ORDERS_SERVICE_NAME, 'buyShare')
-    // private buyShare(payload: BuyShareRequest): Promise<BuyShareResponse> {
-    //     return this.service.buyShare(payload);
-    // }
+    @GrpcMethod(ORDERS_SERVICE_NAME, 'buyShare')
+    private buyShare(payload: BuyShareRequest): Promise<BuyShareResponse> {
+        return this.service.buyShare(payload);
+    }
+
+    @GrpcMethod(ORDERS_SERVICE_NAME, 'getMyInvestment')
+    private getInvestment(payload: GetInvestmentRequest): Promise<GetInvestmentResponse> {
+        return this.service.getInvestment(payload);
+    }
 
     @GrpcMethod(ORDERS_SERVICE_NAME, 'sellShare')
     private sellShare(payload: SellShareRequest): Promise<SellShareResponse> {

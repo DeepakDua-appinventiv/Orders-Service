@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-enum OrderTypeEnum {
+export enum OrderTypeEnum {
     BUY = 'buy',
     SELL = 'sell',
 }
@@ -12,12 +12,10 @@ export class Transactions extends Document {
   user: Types.ObjectId;
 
   @Prop({
-    type: [{
-        shareId: { type: Types.ObjectId },
-    }],
+    type: [Types.ObjectId],
     default: [],
 })
-  shares: Array<{ shareId }>[];
+  shares: Types.ObjectId[];
 
   @Prop({ type: String, enum: Object.values(OrderTypeEnum) })
   orderType: OrderTypeEnum;
