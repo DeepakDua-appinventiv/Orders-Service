@@ -7,10 +7,12 @@ import { Investments, InvestmentSchema } from './entity/Investment.entity';
 import { SellOrders, SellOrdersSchema } from './entity/sellOrders.entity';
 import { USERS_PACKAGE_NAME, USERS_SERVICE_NAME } from './users.pb';
 import { Transactions, TransactionsSchema } from './entity/transactions.entity';
+import { KafkaModule } from 'src/kafka/kafka.module';
 
 
 @Module({
   imports: [
+    KafkaModule,
     MongooseModule.forFeature([
       { name: Investments.name, schema: InvestmentSchema},
       { name: SellOrders.name, schema: SellOrdersSchema },

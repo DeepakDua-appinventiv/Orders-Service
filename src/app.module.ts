@@ -4,6 +4,7 @@ import { AppService } from './app.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { OrdersModule } from './orders/orders.module';
 import { InvestmentSchema, Investments } from './orders/entity/Investment.entity';
+import { KafkaModule } from './kafka/kafka.module';
 
 @Module({
   imports: [

@@ -4,6 +4,7 @@ import { Transport } from '@nestjs/microservices';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { protobufPackage } from './orders/orders.pb';
+import { KafkaConsumerService } from './kafka/consumer.service';
 
 async function bootstrap() {
   const app: INestMicroservice = await NestFactory.createMicroservice(AppModule, {
@@ -14,6 +15,8 @@ async function bootstrap() {
       protoPath: join('node_modules/grpc-nest-proto/proto/orders.proto'),
     }
   });
+  const kafkaConsumerService = app.get(KafkaConsumerService);
+  await kafkaConsumerService.startConsumer()
   await app.listen();
 }
 bootstrap();

@@ -26,11 +26,10 @@ import {
 } from './users.pb';
 import { ClientGrpc } from '@nestjs/microservices';
 import { Observable, firstValueFrom } from 'rxjs';
-import { ShareDTO } from './orders.dto';
-import { ObjectId } from 'mongodb';
-import { Types } from 'mongoose';
 import { Transactions } from './entity/transactions.entity';
 import { Kafka, logLevel } from 'kafkajs';
+import { KafkaProducerService } from 'src/kafka/producer.service';
+import { KafkaConsumerService } from 'src/kafka/consumer.service';
 
 @Injectable()
 export class OrdersService implements OnModuleInit {
@@ -43,11 +42,11 @@ export class OrdersService implements OnModuleInit {
     private readonly transactionsModel: Model<Transactions>,
     @Inject(USERS_SERVICE_NAME)
     private readonly client: ClientGrpc,
+    private readonly kafkaProducerService : KafkaProducerService,
+    private readonly consumerService: KafkaConsumerService
   ) {}
   private svc: WalletServiceClient;
 
-  // @Inject(WALLET_SERVICE_NAME)
-  // private readonly client: ClientGrpc;
   public onModuleInit(): void {
     this.svc = this.client.getService<WalletServiceClient>(WALLET_SERVICE_NAME);
   }
@@ -127,7 +126,7 @@ export class OrdersService implements OnModuleInit {
   }
 
   public async getDataByUserIdAndCompanyId(
-    userId: string,
+    userId: object,
     companyId: object,
   ): Promise<Investments | null> {
     const data = await this.investmentModel
@@ -162,12 +161,12 @@ export class OrdersService implements OnModuleInit {
       }),
     );
 
-    const buyTransaction = new this.transactionsModel({
+    const transactionData = new this.transactionsModel({
       user: new mongoose.Types.ObjectId(payload.userId),
       shares: pendingShares.slice(0, numberOfSharesToBuy),
       orderType: OrderTypeEnum.BUY,
     });
-    await buyTransaction.save();
+    await transactionData.save();
 
     const sellTransaction = new this.transactionsModel({
       user: sellerUserId,
@@ -177,33 +176,10 @@ export class OrdersService implements OnModuleInit {
 
     await sellTransaction.save();
 
-    const kafka = new Kafka({
-      clientId: 'orders-microservice',
-      brokers: ['localhost:9092'],
-      logLevel: logLevel.INFO,
-    });
-
-    const producer = kafka.producer();
-
-    await producer.connect();
-
-    const transactionTopic = 'transaction';
-
-    const transactionData = {
-      userId: payload.userId,
-      shares: pendingShares.slice(0, numberOfSharesToBuy),
-      orderType: 'buy',
-    };
-
-    await producer.send({
-      topic: transactionTopic,
-      messages: [{ value: JSON.stringify(transactionData) }],
-    });
-
-    await producer.disconnect();
+    await this.kafkaProducerService.sendToKafka('transaction', transactionData);
 
     const data = await this.getDataByUserIdAndCompanyId(
-      payload.userId,
+      new mongoose.Types.ObjectId(payload.userId),
       companyId,
     );
 
@@ -214,10 +190,11 @@ export class OrdersService implements OnModuleInit {
         myShares: pendingShares.slice(0, numberOfSharesToBuy),
         totalInvestment: totalCost,
       });
+
       await buyerInvestment.save();
+
     } else {
-      const sharesToBuy = pendingShares.slice(0, numberOfSharesToBuy);
-      data.myShares.push(...pendingShares);
+      data.myShares.push(...pendingShares.slice(0, numberOfSharesToBuy));
       data.totalInvestment += totalCost;
       await data.save();
     }
@@ -228,28 +205,30 @@ export class OrdersService implements OnModuleInit {
     });
 
     const sellerShares = sellerInvestment.myShares;
+    const sellerSharesCount = sellerShares.length;
+    const currentTotalInvestment = sellerInvestment.totalInvestment/sellerSharesCount;
     const updatedShares = sellerShares.filter(function (shareId) {
       return !pendingShares.includes(shareId);
     });
 
-    const remainingInvestment = updatedShares.length * askPrice;
-
+    const remainingSharesCount = updatedShares.length;
+    const remainingInvestment = currentTotalInvestment * remainingSharesCount;
+    
     await this.investmentModel.findOneAndUpdate(
       { userId: sellerUserId, companyId },
       { myShares: updatedShares, totalInvestment: remainingInvestment },
     );
 
-    const remainingShares = pendingShares.filter(
-      (shareId) => !updatedShares.includes(shareId),
-    );
-
+    const sharesBought = pendingShares.slice(0, numberOfSharesToBuy);
+    const newPendingShares = pendingShares.filter((shareId) => !sharesBought.includes(shareId));
+    const newSoldShares = [...sellOrder.soldShares, ...sharesBought];
+  
     await this.sellOrdersModel.findOneAndUpdate(
       { userId: sellerUserId, companyId },
       {
-        pendingShares: remainingShares,
-        soldShares: pendingShares.slice(0, numberOfSharesToBuy),
-      },
-    );    
+        pendingShares: newPendingShares,
+        soldShares: newSoldShares,
+      });    
     return { status: HttpStatus.OK, message: 'Shares Bought Successfully' };
   }
 

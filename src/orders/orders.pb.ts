@@ -6,6 +6,7 @@ export const protobufPackage = "orders";
 
 /** Get Shares of a company */
 export interface Share {
+  Id: string;
   userId: string;
   companyId: string;
   askPrice: number;
@@ -87,6 +88,17 @@ export interface UpdateBalanceResponse {
   error: string[];
 }
 
+export interface UpdateSharePriceRequest {
+  companyId: string;
+  shareIds: string[];
+  purchasePrice: number;
+}
+
+export interface UpdateSharePriceResponse {
+  status: number;
+  message: string;
+}
+
 export const ORDERS_PACKAGE_NAME = "orders";
 
 export interface OrdersServiceClient {
@@ -101,6 +113,8 @@ export interface OrdersServiceClient {
   getBalance(request: GetBalanceRequest): Observable<GetBalanceResponse>;
 
   updateBalance(request: UpdateBalanceRequest): Observable<UpdateBalanceResponse>;
+
+  updateSharePrice(request: UpdateSharePriceRequest): Observable<UpdateSharePriceResponse>;
 }
 
 export interface OrdersServiceController {
@@ -121,6 +135,10 @@ export interface OrdersServiceController {
   updateBalance(
     request: UpdateBalanceRequest,
   ): Promise<UpdateBalanceResponse> | Observable<UpdateBalanceResponse> | UpdateBalanceResponse;
+
+  updateSharePrice(
+    request: UpdateSharePriceRequest,
+  ): Promise<UpdateSharePriceResponse> | Observable<UpdateSharePriceResponse> | UpdateSharePriceResponse;
 }
 
 export function OrdersServiceControllerMethods() {
@@ -132,6 +150,7 @@ export function OrdersServiceControllerMethods() {
       "buyShare",
       "getBalance",
       "updateBalance",
+      "updateSharePrice",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
