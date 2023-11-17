@@ -88,13 +88,17 @@ export interface UpdateBalanceResponse {
   error: string[];
 }
 
-export interface UpdateSharePriceRequest {
-  companyId: string;
-  shareIds: string[];
-  purchasePrice: number;
+export interface ShareUpdate {
+  shareId: string;
 }
 
-export interface UpdateSharePriceResponse {
+export interface UpdateShareRequest {
+  userId: string;
+  sharesBought: ShareUpdate[];
+  askPrice: number;
+}
+
+export interface UpdateShareResponse {
   status: number;
   message: string;
 }
@@ -114,7 +118,7 @@ export interface OrdersServiceClient {
 
   updateBalance(request: UpdateBalanceRequest): Observable<UpdateBalanceResponse>;
 
-  updateSharePrice(request: UpdateSharePriceRequest): Observable<UpdateSharePriceResponse>;
+  updateShare(request: UpdateShareRequest): Observable<UpdateShareResponse>;
 }
 
 export interface OrdersServiceController {
@@ -136,9 +140,9 @@ export interface OrdersServiceController {
     request: UpdateBalanceRequest,
   ): Promise<UpdateBalanceResponse> | Observable<UpdateBalanceResponse> | UpdateBalanceResponse;
 
-  updateSharePrice(
-    request: UpdateSharePriceRequest,
-  ): Promise<UpdateSharePriceResponse> | Observable<UpdateSharePriceResponse> | UpdateSharePriceResponse;
+  updateShare(
+    request: UpdateShareRequest,
+  ): Promise<UpdateShareResponse> | Observable<UpdateShareResponse> | UpdateShareResponse;
 }
 
 export function OrdersServiceControllerMethods() {
@@ -150,7 +154,7 @@ export function OrdersServiceControllerMethods() {
       "buyShare",
       "getBalance",
       "updateBalance",
-      "updateSharePrice",
+      "updateShare",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

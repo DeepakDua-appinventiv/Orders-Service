@@ -15,6 +15,7 @@ export interface Share {
 
 /** Get Company */
 export interface Company {
+  Id: string;
   name: string;
   industry: string;
 }
@@ -40,13 +41,17 @@ export interface GetCompanyResponse {
   error: string[];
 }
 
-export interface UpdateSharePriceRequest {
-  companyId: string;
-  shareIds: string[];
-  purchasePrice: number;
+export interface ShareUpdate {
+  shareId: string;
 }
 
-export interface UpdateSharePriceResponse {
+export interface UpdateShareRequest {
+  userId: string;
+  sharesBought: ShareUpdate[];
+  askPrice: number;
+}
+
+export interface UpdateShareResponse {
   status: number;
   message: string;
 }
@@ -58,7 +63,7 @@ export interface SharesServiceClient {
 
   getShare(request: GetShareRequest): Observable<GetShareResponse>;
 
-  updateSharePrice(request: UpdateSharePriceRequest): Observable<UpdateSharePriceResponse>;
+  updateShare(request: UpdateShareRequest): Observable<UpdateShareResponse>;
 }
 
 export interface SharesServiceController {
@@ -68,14 +73,14 @@ export interface SharesServiceController {
 
   getShare(request: GetShareRequest): Promise<GetShareResponse> | Observable<GetShareResponse> | GetShareResponse;
 
-  updateSharePrice(
-    request: UpdateSharePriceRequest,
-  ): Promise<UpdateSharePriceResponse> | Observable<UpdateSharePriceResponse> | UpdateSharePriceResponse;
+  updateShare(
+    request: UpdateShareRequest,
+  ): Promise<UpdateShareResponse> | Observable<UpdateShareResponse> | UpdateShareResponse;
 }
 
 export function SharesServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["searchCompany", "getShare", "updateSharePrice"];
+    const grpcMethods: string[] = ["searchCompany", "getShare", "updateShare"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("SharesService", method)(constructor.prototype[method], method, descriptor);

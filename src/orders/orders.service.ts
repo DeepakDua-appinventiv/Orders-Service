@@ -13,6 +13,7 @@ import {
   GetInvestmentResponse,
   Investment,
   UpdateBalanceResponse,
+  ShareUpdate,
 } from './orders.pb';
 import { InjectModel } from '@nestjs/mongoose';
 import mongoose, { Model, Mongoose } from 'mongoose';
@@ -30,6 +31,8 @@ import { Transactions } from './entity/transactions.entity';
 import { Kafka, logLevel } from 'kafkajs';
 import { KafkaProducerService } from 'src/kafka/producer.service';
 import { KafkaConsumerService } from 'src/kafka/consumer.service';
+import { SHARES_SERVICE_NAME, SharesServiceClient } from './shares.pb';
+import { Types } from 'mongoose';
 
 @Injectable()
 export class OrdersService implements OnModuleInit {
@@ -42,13 +45,18 @@ export class OrdersService implements OnModuleInit {
     private readonly transactionsModel: Model<Transactions>,
     @Inject(USERS_SERVICE_NAME)
     private readonly client: ClientGrpc,
+    @Inject(SHARES_SERVICE_NAME)
+    private readonly sharesClient: ClientGrpc,
+    
     private readonly kafkaProducerService : KafkaProducerService,
     private readonly consumerService: KafkaConsumerService
   ) {}
   private svc: WalletServiceClient;
+  private sharesSvc: SharesServiceClient;
 
   public onModuleInit(): void {
     this.svc = this.client.getService<WalletServiceClient>(WALLET_SERVICE_NAME);
+    this.sharesSvc = this.sharesClient.getService<SharesServiceClient>(SHARES_SERVICE_NAME);
   }
 
   public async retrieveShares(
@@ -219,16 +227,30 @@ export class OrdersService implements OnModuleInit {
       { myShares: updatedShares, totalInvestment: remainingInvestment },
     );
 
-    const sharesBought = pendingShares.slice(0, numberOfSharesToBuy);
-    const newPendingShares = pendingShares.filter((shareId) => !sharesBought.includes(shareId));
-    const newSoldShares = [...sellOrder.soldShares, ...sharesBought];
+    const shareBought = pendingShares.slice(0, numberOfSharesToBuy);
+    const sharesBought = pendingShares.slice(0, numberOfSharesToBuy).map(id => ({
+      shareId: id.toHexString(),
+    }));
+
+    console.log(shareBought);
+    console.log(sharesBought);
+    const newPendingShares = pendingShares.filter((shareId) => !shareBought.includes(shareId));
+    const newSoldShares = [...sellOrder.soldShares, ...shareBought];
   
     await this.sellOrdersModel.findOneAndUpdate(
       { userId: sellerUserId, companyId },
       {
         pendingShares: newPendingShares,
         soldShares: newSoldShares,
-      });    
+      });
+
+    await firstValueFrom(this.sharesSvc.updateShare({
+        userId: payload.userId,
+        sharesBought: sharesBought,
+        askPrice: askPrice
+      })
+    )
+
     return { status: HttpStatus.OK, message: 'Shares Bought Successfully' };
   }
 
