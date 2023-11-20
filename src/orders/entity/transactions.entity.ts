@@ -19,6 +19,12 @@ export class Transactions extends Document {
 
   @Prop({ type: String, enum: Object.values(OrderTypeEnum) })
   orderType: OrderTypeEnum;
+
+  @Prop({ type: Number }) 
+  quantity: number;
+
+  @Prop({ type: Number }) 
+  transactionAmount: number;
 }
 
 

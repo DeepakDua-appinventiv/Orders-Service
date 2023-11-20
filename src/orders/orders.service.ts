@@ -165,26 +165,9 @@ export class OrdersService implements OnModuleInit {
     const updateBuyerWallet: UpdateBalanceResponse = await firstValueFrom(
       this.svc.updateBalance({
         userId: payload.userId,
-        walletAmount: buyerAmount,
+        walletAmount: -totalCost,
       }),
     );
-
-    const transactionData = new this.transactionsModel({
-      user: new mongoose.Types.ObjectId(payload.userId),
-      shares: pendingShares.slice(0, numberOfSharesToBuy),
-      orderType: OrderTypeEnum.BUY,
-    });
-    await transactionData.save();
-
-    const sellTransaction = new this.transactionsModel({
-      user: sellerUserId,
-      shares: pendingShares.slice(0, numberOfSharesToBuy),
-      orderType: OrderTypeEnum.SELL,
-    });
-
-    await sellTransaction.save();
-
-    await this.kafkaProducerService.sendToKafka('transaction', transactionData);
 
     const data = await this.getDataByUserIdAndCompanyId(
       new mongoose.Types.ObjectId(payload.userId),
@@ -250,6 +233,28 @@ export class OrdersService implements OnModuleInit {
         askPrice: askPrice
       })
     )
+
+    const transactionData = new this.transactionsModel({
+      user: new mongoose.Types.ObjectId(payload.userId),
+      shares: pendingShares.slice(0, numberOfSharesToBuy),
+      orderType: OrderTypeEnum.BUY,
+      quantity: shareBought.length,
+      transactionAmount: totalCost
+    });
+    
+    await transactionData.save();
+
+    const sellTransaction = new this.transactionsModel({
+      user: sellerUserId,
+      shares: pendingShares.slice(0, numberOfSharesToBuy),
+      orderType: OrderTypeEnum.SELL,
+      quantity: shareBought.length,
+      transactionAmount: totalCost
+    });
+
+    await sellTransaction.save();
+
+    await this.kafkaProducerService.sendToKafka('transaction', transactionData);
 
     return { status: HttpStatus.OK, message: 'Shares Bought Successfully' };
   }

@@ -9,7 +9,9 @@
 </head>
 <body>
   <h1>Transaction Details</h1>
-  <p>User ID: <%= data.userId %></p>
+  <p>Transaction ID: <%= data._id %></p>
   <p>Shares: <%= data.shares.join(', ') %></p>
+  <p>Quantity: <%= data.quantity %></p>
+  <p>Transaction Amount: <%= data.transactionAmount %></p>
 </body>
 </html>
