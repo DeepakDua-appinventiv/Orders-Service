@@ -37,6 +37,7 @@ export interface GetInvestmentRequest {
 
 export interface GetInvestmentResponse {
   status: number;
+  grandTotalInvestment: number;
   investments: Investment[];
   error: string[];
 }

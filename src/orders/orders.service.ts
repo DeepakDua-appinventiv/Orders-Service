@@ -33,6 +33,7 @@ import { KafkaProducerService } from 'src/kafka/producer.service';
 import { KafkaConsumerService } from 'src/kafka/consumer.service';
 import { SHARES_SERVICE_NAME, SharesServiceClient } from './shares.pb';
 import { Types } from 'mongoose';
+import { RESPONSE_MESSAGES } from 'src/common/orders.constants';
 
 @Injectable()
 export class OrdersService implements OnModuleInit {
@@ -73,7 +74,7 @@ export class OrdersService implements OnModuleInit {
 
       return { status: 200, shares: companyShares, error: [] };
     } catch {
-      return { status: 500, shares: [], error: ['Error retrieving shares'] };
+      return { status: 500, shares: [], error: [RESPONSE_MESSAGES.SHARES_ERROR] };
     }
   }
 
@@ -108,8 +109,9 @@ export class OrdersService implements OnModuleInit {
       if (result.length === 0 || !result[0].investments) {
         return {
           status: HttpStatus.OK,
+          grandTotalInvestment: 0,
           investments: [],
-          error: ['No investments found for the user'],
+          error: [RESPONSE_MESSAGES.INVESTMENT_NOT_FOUND],
         };
       }
 
@@ -121,14 +123,16 @@ export class OrdersService implements OnModuleInit {
 
       return {
         status: HttpStatus.OK,
+        grandTotalInvestment: grandTotalInvestment,
         investments: investments,
         error: null,
       };
     } catch (error) {
       return {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
+        grandTotalInvestment: null,
         investments: null,
-        error: ['Error retrieving investments'],
+        error: [RESPONSE_MESSAGES.INVESTMENTS_ERROR],
       };
     }
   }
@@ -152,6 +156,10 @@ export class OrdersService implements OnModuleInit {
     const askPrice = sellOrder.askPrice;
     const companyId = sellOrder.companyId;
 
+    if (numberOfSharesToBuy > pendingShares.length) {
+      return { status: HttpStatus.BAD_REQUEST, message: RESPONSE_MESSAGES.INSUFFICIENT_SHARES };
+  }
+
     const buyerWallet: GetBalanceResponse = await firstValueFrom(
       this.svc.getBalance({ userId: payload.userId }),
     );
@@ -159,7 +167,7 @@ export class OrdersService implements OnModuleInit {
     const totalCost = numberOfSharesToBuy * askPrice;
 
     if (buyerAmount < totalCost) {
-      return { status: HttpStatus.BAD_REQUEST, message: 'Insufficient funds' };
+      return { status: HttpStatus.BAD_REQUEST, message: RESPONSE_MESSAGES.INSUFFICIENT_FUNDS };
     }
 
     const updateBuyerWallet: UpdateBalanceResponse = await firstValueFrom(
@@ -198,9 +206,14 @@ export class OrdersService implements OnModuleInit {
     const sellerShares = sellerInvestment.myShares;
     const sellerSharesCount = sellerShares.length;
     const currentTotalInvestment = sellerInvestment.totalInvestment/sellerSharesCount;
-    const updatedShares = sellerShares.filter(function (shareId) {
-      return !pendingShares.includes(shareId);
-    });
+    // const updatedShares = sellerShares.filter(function (shareId) {
+    //   return !pendingShares.includes(shareId);
+    // });
+    function removeItems(arr:any, n:any) {
+      arr.splice(0, n);
+      return arr;
+    };
+    const updatedShares = removeItems(sellerShares,numberOfSharesToBuy);
 
     const remainingSharesCount = updatedShares.length;
     const remainingInvestment = currentTotalInvestment * remainingSharesCount;
@@ -256,7 +269,7 @@ export class OrdersService implements OnModuleInit {
 
     await this.kafkaProducerService.sendToKafka('transaction', transactionData);
 
-    return { status: HttpStatus.OK, message: 'Shares Bought Successfully' };
+    return { status: HttpStatus.OK, message: RESPONSE_MESSAGES.SHARES_BOUGHT_SUCCESS };
   }
 
   public async sellShare(
@@ -272,7 +285,7 @@ export class OrdersService implements OnModuleInit {
     });
 
     if (!investment) {
-      return { status: HttpStatus.NOT_FOUND, message: 'Investment not found' };
+      return { status: HttpStatus.NOT_FOUND, message: RESPONSE_MESSAGES.INVESTMENT_NOT_FOUND };
     }
     const myShares = investment.myShares.slice(0, sharesToSell);
 
@@ -288,7 +301,7 @@ export class OrdersService implements OnModuleInit {
 
     return {
       status: HttpStatus.OK,
-      message: 'Shares Put to Sold Successfully',
+      message: RESPONSE_MESSAGES.SHARES_SOLD_SUCCESS,
     };
   }
 }
