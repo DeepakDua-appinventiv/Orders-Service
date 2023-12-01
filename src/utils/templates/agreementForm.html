@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Agreement Submission</title>
+  <style>
+     body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+      }
+      .agreement {
+        width: 80%;
+        margin: 0 auto;
+        padding: 20px;
+        border: 1px solid #ccc;
+        background-color: #fff;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+      .heading {
+        text-align: center;
+        font-size: 24px;
+        margin-bottom: 20px;
+      }
+      .content {
+        line-height: 1.6;
+        text-align: justify;
+      }
+      .signature {
+        margin-top: 50px;
+        text-align: right;
+      }
+      .full-page {
+        page-break-before: always;
+      }
+  </style>
+  <script>
+    function submitForm(event) {
+      event.preventDefault();
+
+      const userId = document.getElementById('userId').value;
+      const sellOrderId = document.getElementById('sellOrderId').value;
+      const signature = document.getElementById('buyerSignature').value;
+
+      const payload = {
+        userId,
+        sellOrderId,
+        signature
+      };
+
+      const jsonData = JSON.stringify(payload);
+
+      fetch('http://localhost:3000/orders/submitAgreement', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: jsonData
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok.');
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('API Response:', data);
+      })
+      .catch(error => {
+        console.error('There was a problem with the fetch operation:', error);
+      });
+    }
+  </script>
+</head>
+<body>
+  <div class="agreement">
+    <div class="heading">Agreement</div>
+    <div class="content">
+      <p>This Agreement is made and entered into by and between [Full Name of Seller] ("Seller") and [Full Name of Buyer] ("Buyer").</p>
+        <p>For good and valuable consideration, the receipt and sufficiency of which are hereby acknowledged, the parties agree as follows:</p>
+        <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Optio velit dolorum perspiciatis nam molestias amet, placeat consectetur doloremque eius tenetur eos distinctio saepe unde, provident veritatis quis vero consequuntur deleniti.
+        A quidem soluta id et, repudiandae ipsum temporibus. Consectetur eos quam sequi deserunt tenetur sed ipsum a provident ducimus tempore porro fuga error, recusandae reiciendis dicta, ab ratione mollitia minus!
+        Ad obcaecati harum officiis amet! Culpa dolorem repellat perferendis recusandae consequatur est voluptatem! Voluptates esse totam quibusdam fugiat fuga, non necessitatibus alias cum aliquam, libero ipsam mollitia quod, soluta est.
+        Quia eaque voluptatum perspiciatis assumenda saepe praesentium non, voluptate tenetur ipsa, qui autem, odit repellat ad nisi explicabo architecto nobis. Amet, quisquam ad sequi nihil laborum dicta! Officiis, facere natus.
+        Sint, nulla? Optio hic explicabo eligendi quaerat? Fugit, earum labore quos quidem maxime magnam tempore facere rerum odio explicabo, est dicta eos magni, architecto esse alias voluptate vel facilis recusandae.
+        Quod eligendi atque laboriosam repellendus rem quasi at velit perferendis doloribus aliquam sed necessitatibus nulla, possimus, vitae accusantium exercitationem nam enim nostrum? Neque illo alias quo nam odio! Error, maxime.
+        Repellat neque earum necessitatibus repudiandae magni nesciunt, voluptatum quos aliquam possimus est quisquam! Sit provident maxime veniam. Iure itaque quibusdam fugiat quis, assumenda aperiam dolore nam incidunt, consequatur reiciendis commodi.
+        Officia cupiditate aliquam incidunt itaque, magni et laborum qui labore illum fugiat, modi debitis, maiores molestiae. Quos placeat sint, saepe laborum repellendus sunt quaerat accusantium quam dolorem dolor natus exercitationem?
+        Iste, quisquam facilis voluptatum porro architecto quis ab mollitia tempore corporis ex rerum asperiores quidem suscipit rem illo tempora, quibusdam sunt id deleniti vitae dolor, ipsum explicabo nobis! At, accusantium!
+        Aliquam accusamus veritatis, eius ratione distinctio labore inventore beatae quia quibusdam molestiae iste numquam suscipit amet tempore dolor optio nesciunt a quisquam ipsum? Vero nesciunt sunt error, perspiciatis praesentium ut!
+        Optio, expedita esse! Labore tempora facilis odit hic, adipisci incidunt explicabo temporibus laborum laboriosam expedita possimus commodi natus similique a id, vel rem culpa perspiciatis! Unde at incidunt saepe sint.
+        Eos repellat porro omnis temporibus nesciunt? Ea saepe corporis officia eveniet soluta blanditiis error aspernatur omnis architecto illum, odit perferendis aperiam illo repudiandae exercitationem vitae maxime adipisci enim, ducimus tempore?
+        Amet aliquam commodi, atque possimus aspernatur dignissimos voluptatem recusandae et quos libero sit beatae vitae nulla corporis fugiat cum exercitationem ut doloremque, ullam culpa. Officiis distinctio expedita in quisquam animi.
+        Corporis, deserunt culpa? Iste esse asperiores ipsam tenetur nostrum sapiente quibusdam ea, consequatur repellendus odit quam modi amet? Aut ex fugiat ut cupiditate unde fugit perspiciatis atque molestiae vitae tempora.
+        Nemo nihil, exercitationem magnam recusandae voluptate quae porro nostrum molestiae corporis, atque animi vel deleniti explicabo ea, quibusdam enim doloremque harum? Nemo distinctio culpa, similique exercitationem unde impedit sint magni.
+        Commodi perferendis impedit amet quo, praesentium eos illum cum quasi facilis est mollitia sequi dolor pariatur numquam velit repellat debitis, fuga consequatur ipsa ullam voluptatibus. Perspiciatis laudantium dignissimos maiores perferendis.
+        Expedita sapiente voluptatibus quia quis quam quisquam? Suscipit incidunt hic animi obcaecati vel natus aliquam. Quis doloribus reprehenderit iure voluptatum tempore quibusdam. Veniam ex tenetur expedita, ullam id vero aliquam!
+        Quam sequi corporis explicabo iste libero, est ex quis dolorem ut. Praesentium adipisci quaerat consectetur voluptates molestiae assumenda rem sint provident suscipit aliquam architecto fugit itaque explicabo vero, blanditiis nobis?
+        Totam fugit, esse temporibus fuga provident magnam tempora voluptatem unde exercitationem quam aspernatur quia, laudantium veniam animi? Illum in quae consequatur dolores facilis provident tempore laudantium, fugiat, ad consequuntur adipisci!
+        Magnam quis maiores cupiditate nulla in deserunt at officiis quae vero. Magni perspiciatis, rerum ea optio, praesentium placeat impedit nulla fuga asperiores dolore quam ipsa nostrum aliquid vel sit obcaecati?</p>
+      <input type="text" id="userId" name="userId" placeholder="UserID: _______________________">
+      <input type="text" id="sellOrderId" name="sellOrderId" placeholder="Sell Order ID: _______________________">
+      <div class="signature">
+        <input type="text" id="buyerSignature" name="buyerSignature" placeholder="Buyer's Signature: _______________________">
+      </div>
+    </div>
+    <input type="submit" value="Submit" onclick="submitForm(event)">
+  </div>
+</body>
+</html>
+
+

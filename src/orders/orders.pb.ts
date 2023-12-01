@@ -31,6 +31,26 @@ export interface GetShareResponse {
   error: string[];
 }
 
+export interface CheckAgreementStatusRequest {
+  userId: string;
+  sellOrderId: string;
+}
+
+export interface CheckAgreementStatusResponse {
+  status: boolean;
+}
+
+export interface SubmitAgreementRequest {
+  userId: string;
+  sellOrderId: string;
+  signature: string;
+}
+
+export interface SubmitAgreementResponse {
+  status: number;
+  message: string;
+}
+
 export interface GetInvestmentRequest {
   userId: string;
 }
@@ -111,6 +131,8 @@ export interface OrdersServiceClient {
 
   sellShare(request: SellShareRequest): Observable<SellShareResponse>;
 
+  submitAgreement(request: SubmitAgreementRequest): Observable<SubmitAgreementResponse>;
+
   getMyInvestment(request: GetInvestmentRequest): Observable<GetInvestmentResponse>;
 
   buyShare(request: BuyShareRequest): Observable<BuyShareResponse>;
@@ -126,6 +148,10 @@ export interface OrdersServiceController {
   getShare(request: GetShareRequest): Promise<GetShareResponse> | Observable<GetShareResponse> | GetShareResponse;
 
   sellShare(request: SellShareRequest): Promise<SellShareResponse> | Observable<SellShareResponse> | SellShareResponse;
+
+  submitAgreement(
+    request: SubmitAgreementRequest,
+  ): Promise<SubmitAgreementResponse> | Observable<SubmitAgreementResponse> | SubmitAgreementResponse;
 
   getMyInvestment(
     request: GetInvestmentRequest,
@@ -151,6 +177,7 @@ export function OrdersServiceControllerMethods() {
     const grpcMethods: string[] = [
       "getShare",
       "sellShare",
+      "submitAgreement",
       "getMyInvestment",
       "buyShare",
       "getBalance",

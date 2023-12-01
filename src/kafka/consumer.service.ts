@@ -4,6 +4,8 @@ import * as fs from 'fs';
 import * as ejs from 'ejs';
 import { Injectable } from '@nestjs/common';
 import { KafkaService } from './kafka.service'; 
+import config from 'src/common/config.common';
+import path from 'path';
 
 @Injectable()
 export class KafkaConsumerService {
@@ -33,16 +35,14 @@ export class KafkaConsumerService {
   }
 
   async generatePDF(transactionData: any): Promise<string> {
-    const templatePath = '/home/admin446/Desktop/stock_market_app/order-management/src/utils/templates/transaction_template.ejs';
-
+    const templatePath = path.join(__dirname, 'utils', 'templates', 'transaction_template.ejs');
     const renderedHTML = await ejs.renderFile(templatePath, { data: transactionData });
 
     const browser = await puppeteer.launch({ headless: "new" });
     const page = await browser.newPage();
     await page.setContent(renderedHTML);
-    const pdfPath = `/home/admin446/Desktop/pdfs/transaction_${transactionData.id}.pdf`;
+    const pdfPath = path.join(path.join(__dirname, 'Desktop', 'pdfs', `transaction_${transactionData.id}.pdf`));
     await page.pdf({ path: pdfPath, format: 'A4' });
-
     await browser.close();
     return pdfPath;
   }
@@ -51,13 +51,13 @@ export class KafkaConsumerService {
     const transporter = nodemailer.createTransport({
       service: 'gmail', 
       auth: {
-        user: 'deepudua710@gmail.com',
-        pass: 'nzcimpkmswmscvgl',
+        user: config.EMAIL,
+        pass: config.EMAIL_PASSWORD,
       },
     });
 
     const mailOptions = {
-      from: 'deepudua710@gmail.com',
+      from: config.EMAIL,
       to: 'deepak.dua@appinventiv.com',
       subject: 'Transaction Details',
       text: 'Please find attached transaction details',

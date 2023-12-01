@@ -14,6 +14,10 @@ import {
   Investment,
   UpdateBalanceResponse,
   ShareUpdate,
+  SubmitAgreementRequest,
+  SubmitAgreementResponse,
+  CheckAgreementStatusRequest,
+  CheckAgreementStatusResponse,
 } from './orders.pb';
 import { InjectModel } from '@nestjs/mongoose';
 import mongoose, { Model, Mongoose } from 'mongoose';
@@ -25,7 +29,7 @@ import {
   WALLET_SERVICE_NAME,
   WalletServiceClient,
 } from './users.pb';
-import { ClientGrpc } from '@nestjs/microservices';
+import { ClientGrpc, Payload } from '@nestjs/microservices';
 import { Observable, firstValueFrom } from 'rxjs';
 import { Transactions } from './entity/transactions.entity';
 import { Kafka, logLevel } from 'kafkajs';
@@ -34,6 +38,11 @@ import { KafkaConsumerService } from 'src/kafka/consumer.service';
 import { SHARES_SERVICE_NAME, SharesServiceClient } from './shares.pb';
 import { Types } from 'mongoose';
 import { RESPONSE_MESSAGES } from 'src/common/orders.constants';
+import { Agreement } from './entity/agreement.entity';
+import puppeteer from 'puppeteer';
+import * as nodemailer from 'nodemailer';
+import * as path from 'path';
+import config from 'src/common/config.common';
 
 @Injectable()
 export class OrdersService implements OnModuleInit {
@@ -44,6 +53,8 @@ export class OrdersService implements OnModuleInit {
     private readonly sellOrdersModel: Model<SellOrders>,
     @InjectModel(Transactions.name)
     private readonly transactionsModel: Model<Transactions>,
+    @InjectModel(Agreement.name)
+    private readonly agreementModel: Model<Agreement>,
     @Inject(USERS_SERVICE_NAME)
     private readonly client: ClientGrpc,
     @Inject(SHARES_SERVICE_NAME)
@@ -67,9 +78,22 @@ export class OrdersService implements OnModuleInit {
       const userId = new mongoose.Types.ObjectId(payload.userId);
       const companyId = new mongoose.Types.ObjectId(payload.companyId);
       console.log(companyId);
-      const companyShares: any = await this.sellOrdersModel
-        .find({ companyId, userId: { $ne: userId } })
-        .exec();
+      const companyShares: any = await this.sellOrdersModel.aggregate([
+        {
+          $match: {
+            companyId,
+            userId: { $ne: userId }
+          }
+        },
+        {
+          $project: {
+            companyId: 1,
+            askPrice: 1,
+            pendingShares: 1,
+            _id: 0 
+          }
+        }
+      ]).exec();
       console.log(companyShares);
 
       return { status: 200, shares: companyShares, error: [] };
@@ -77,6 +101,78 @@ export class OrdersService implements OnModuleInit {
       return { status: 500, shares: [], error: [RESPONSE_MESSAGES.SHARES_ERROR] };
     }
   }
+
+  public async checkAgreementStatus(payload: CheckAgreementStatusRequest): Promise<CheckAgreementStatusResponse> {  
+    try {
+      const { userId, sellOrderId } = payload;
+      const uid = new mongoose.Types.ObjectId(userId);
+      const sid = new mongoose.Types.ObjectId(sellOrderId);
+      
+      const existingAgreement = await this.agreementModel
+      .findOne({ userId: uid, sellOrderId: sid })
+      .populate('sellOrderId'); 
+
+      if (existingAgreement) {
+        return {status: true};
+      } else {
+        return {status: false};
+      }
+    } catch (error) {
+      console.error('Error checking agreement status:', error);
+      return {status: false};
+    }
+  }
+
+  public async submitAgreement(payload: SubmitAgreementRequest): Promise<SubmitAgreementResponse> {
+    try{
+    const { userId, sellOrderId, signature  } = payload;
+
+    const uid = new mongoose.Types.ObjectId(userId);
+    const sid = new mongoose.Types.ObjectId(sellOrderId);
+
+    const agreementData = new this.agreementModel({
+      userId: uid,
+      sellOrderId: sid,
+      signature: signature
+    });
+
+    const savedAgreement = await agreementData.save();  
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+
+    const filePath = path.join(__dirname, 'utils', 'templates', 'agreementForm.html');
+    await page.goto(`file://${filePath}`); 
+ 
+    await page.type('#userId', userId);
+    await page.type('#sellOrderId', sellOrderId);
+    await page.type('#buyerSignature', signature);
+
+    const pdfBuffer = await page.pdf({ format: 'A4' });
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail', 
+      auth: {
+        user: config.EMAIL,
+        pass: config.EMAIL_PASSWORD,
+      },
+    });
+
+    const mailOptions = {
+      from: config.EMAIL,
+      to: 'deepak.dua@appinventiv.com',
+      subject: 'Agreement Submission',
+      text: 'Please find the attached agreement PDF.',
+      attachments: [{ filename: 'agreement.pdf', content: pdfBuffer }],
+    }
+
+    const emailResponse = await transporter.sendMail(mailOptions);
+
+    await browser.close();
+    return { status: 200, message: RESPONSE_MESSAGES.AGREEMENT_SUCCESS };
+  }catch (error) {
+    return { status: 500, message: RESPONSE_MESSAGES.AGREEMENT_ERROR };
+  }
+}
 
   public async getInvestment(
     payload: GetInvestmentRequest,
@@ -147,89 +243,57 @@ export class OrdersService implements OnModuleInit {
     return data;
   }
 
-  public async buyShare(payload: BuyShareRequest): Promise<BuyShareResponse> {
-    const { sellOrderId, numberOfSharesToBuy } = payload;
-    const sellOrder = await this.sellOrdersModel.findById(sellOrderId);
-
-    const sellerUserId = sellOrder.userId;
-    const pendingShares = sellOrder.pendingShares;
-    const askPrice = sellOrder.askPrice;
-    const companyId = sellOrder.companyId;
-
-    if (numberOfSharesToBuy > pendingShares.length) {
-      return { status: HttpStatus.BAD_REQUEST, message: RESPONSE_MESSAGES.INSUFFICIENT_SHARES };
-  }
-
-    const buyerWallet: GetBalanceResponse = await firstValueFrom(
-      this.svc.getBalance({ userId: payload.userId }),
-    );
-    const buyerAmount = buyerWallet.walletAmount;
-    const totalCost = numberOfSharesToBuy * askPrice;
-
-    if (buyerAmount < totalCost) {
-      return { status: HttpStatus.BAD_REQUEST, message: RESPONSE_MESSAGES.INSUFFICIENT_FUNDS };
-    }
-
-    const updateBuyerWallet: UpdateBalanceResponse = await firstValueFrom(
-      this.svc.updateBalance({
-        userId: payload.userId,
-        walletAmount: -totalCost,
-      }),
-    );
-
-    const data = await this.getDataByUserIdAndCompanyId(
-      new mongoose.Types.ObjectId(payload.userId),
-      companyId,
-    );
-
+  private async updateBuyerInvestment(userId: string, sellOrder: any, numberOfSharesToBuy: number, totalCost: number): Promise<void> {
+    const data = await this.getDataByUserIdAndCompanyId(new mongoose.Types.ObjectId(userId), sellOrder.companyId);
     if (!data) {
       const buyerInvestment = new this.investmentModel({
-        userId: new mongoose.Types.ObjectId(payload.userId),
-        companyId: companyId,
-        myShares: pendingShares.slice(0, numberOfSharesToBuy),
+        userId: new mongoose.Types.ObjectId(userId),
+        companyId: sellOrder.companyId,
+        myShares: sellOrder.pendingShares.slice(0, numberOfSharesToBuy),
         totalInvestment: totalCost,
       });
 
       await buyerInvestment.save();
 
     } else {
-      data.myShares.push(...pendingShares.slice(0, numberOfSharesToBuy));
+      data.myShares.push(...sellOrder.pendingShares.slice(0, numberOfSharesToBuy));
       data.totalInvestment += totalCost;
       await data.save();
     }
+  }
+
+  private async updateSellerInvestment(sellOrder: any, numberOfSharesToBuy: number): Promise<void> {
+    const { userId: sellerUserId, companyId } = sellOrder;
 
     const sellerInvestment = await this.investmentModel.findOne({
       userId: sellerUserId,
       companyId,
     });
 
-    const sellerShares = sellerInvestment.myShares;
-    const sellerSharesCount = sellerShares.length;
-    const currentTotalInvestment = sellerInvestment.totalInvestment/sellerSharesCount;
-    // const updatedShares = sellerShares.filter(function (shareId) {
-    //   return !pendingShares.includes(shareId);
-    // });
-    function removeItems(arr:any, n:any) {
-      arr.splice(0, n);
-      return arr;
-    };
-    const updatedShares = removeItems(sellerShares,numberOfSharesToBuy);
+    if(sellerInvestment) {
+      const sellerShares = sellerInvestment.myShares;
+      const sellerSharesCount = sellerShares.length;
+      const currentTotalInvestment = sellerInvestment.totalInvestment/sellerSharesCount;
 
-    const remainingSharesCount = updatedShares.length;
-    const remainingInvestment = currentTotalInvestment * remainingSharesCount;
-    
-    await this.investmentModel.findOneAndUpdate(
-      { userId: sellerUserId, companyId },
-      { myShares: updatedShares, totalInvestment: remainingInvestment },
-    );
+      function removeItems(arr:any, n:any) {
+        arr.splice(0, n);
+        return arr;
+      };
+  
+      const updatedShares = removeItems(sellerShares,numberOfSharesToBuy);
+      const remainingSharesCount = updatedShares.length;
+      const remainingInvestment = currentTotalInvestment * remainingSharesCount;
+      
+      await this.investmentModel.findOneAndUpdate(
+        { userId: sellerUserId, companyId },
+        { myShares: updatedShares, totalInvestment: remainingInvestment },
+      );
+    }
+  }
 
+  private async updateSellOrder(sellOrder: any, numberOfSharesToBuy: number){
+    const { userId: sellerUserId, companyId, pendingShares, soldShares } = sellOrder;
     const shareBought = pendingShares.slice(0, numberOfSharesToBuy);
-    const sharesBought = pendingShares.slice(0, numberOfSharesToBuy).map(id => ({
-      shareId: id.toHexString(),
-    }));
-
-    console.log(shareBought);
-    console.log(sharesBought);
     const newPendingShares = pendingShares.filter((shareId) => !shareBought.includes(shareId));
     const newSoldShares = [...sellOrder.soldShares, ...shareBought];
   
@@ -239,42 +303,99 @@ export class OrdersService implements OnModuleInit {
         pendingShares: newPendingShares,
         soldShares: newSoldShares,
       });
+  }
+
+  private async updateSharesAndTransactions(userId: string, sellOrder: any, numberOfSharesToBuy: number, totalCost: number){
+    const { pendingShares } = sellOrder;
+    const shareBought = pendingShares.slice(0, numberOfSharesToBuy);
+    const sharesBought = pendingShares.slice(0, numberOfSharesToBuy).map(id => ({
+      shareId: id.toHexString(),
+    }));
 
     await firstValueFrom(this.sharesSvc.updateShare({
-        userId: payload.userId,
-        sharesBought: sharesBought,
-        askPrice: askPrice
-      })
-    )
-
+      userId: userId,
+      sharesBought: sharesBought,
+      askPrice: sellOrder.askPrice
+    })
+  )
     const transactionData = new this.transactionsModel({
-      user: new mongoose.Types.ObjectId(payload.userId),
-      shares: pendingShares.slice(0, numberOfSharesToBuy),
-      orderType: OrderTypeEnum.BUY,
-      quantity: shareBought.length,
-      transactionAmount: totalCost
-    });
-    
+    user: new mongoose.Types.ObjectId(userId),
+    shares: pendingShares.slice(0, numberOfSharesToBuy),
+    orderType: OrderTypeEnum.BUY,
+    quantity: shareBought.length,
+    transactionAmount: totalCost
+  });
+  
     await transactionData.save();
 
     const sellTransaction = new this.transactionsModel({
-      user: sellerUserId,
-      shares: pendingShares.slice(0, numberOfSharesToBuy),
-      orderType: OrderTypeEnum.SELL,
-      quantity: shareBought.length,
-      transactionAmount: totalCost
-    });
+    user: sellOrder.sellerUserId,
+    shares: pendingShares.slice(0, numberOfSharesToBuy),
+    orderType: OrderTypeEnum.SELL,
+    quantity: shareBought.length,
+    transactionAmount: totalCost
+  });
 
     await sellTransaction.save();
 
-    await this.kafkaProducerService.sendToKafka('transaction', transactionData);
+    return transactionData;
+}
 
-    return { status: HttpStatus.OK, message: RESPONSE_MESSAGES.SHARES_BOUGHT_SUCCESS };
+  public async buyShare(payload: BuyShareRequest): Promise<BuyShareResponse> {
+    const { userId, sellOrderId, numberOfSharesToBuy } = payload;
+    const hasAgreement = await this.checkAgreementStatus(payload);
+
+    if(!hasAgreement.status) {
+      return {
+        status: HttpStatus.BAD_REQUEST,
+        message: RESPONSE_MESSAGES.AGREEMENT_REQUIRED,
+      }
+    }else{
+      const sellOrder = await this.sellOrdersModel.findById(sellOrderId);
+
+      const sellerUserId = sellOrder.userId;
+      const pendingShares = sellOrder.pendingShares;
+      const askPrice = sellOrder.askPrice;
+      const companyId = sellOrder.companyId;
+  
+      if (numberOfSharesToBuy > pendingShares.length) {
+        return { status: HttpStatus.BAD_REQUEST, message: RESPONSE_MESSAGES.INSUFFICIENT_SHARES };
+    }
+  
+      const buyerWallet: GetBalanceResponse = await firstValueFrom(
+        this.svc.getBalance({ userId: payload.userId }),
+      );
+      const buyerAmount = buyerWallet.walletAmount;
+      const totalCost = numberOfSharesToBuy * askPrice;
+  
+      if (buyerAmount < totalCost) {
+        return { status: HttpStatus.BAD_REQUEST, message: RESPONSE_MESSAGES.INSUFFICIENT_FUNDS };
+      }
+  
+      const updateBuyerWallet: UpdateBalanceResponse = await firstValueFrom(
+        this.svc.updateBalance({
+          userId: payload.userId,
+          walletAmount: -totalCost,
+        }),
+      );
+  
+      await this.updateBuyerInvestment(payload.userId, sellOrder, numberOfSharesToBuy, totalCost);
+      await this.updateSellerInvestment(sellOrder, numberOfSharesToBuy);
+  
+      const updatedSellOrder = await this.updateSellOrder(sellOrder, numberOfSharesToBuy);
+  
+      const transactionData = await this.updateSharesAndTransactions(payload.userId, sellOrder, numberOfSharesToBuy,totalCost);
+  
+      await this.kafkaProducerService.sendToKafka('transaction', transactionData);
+  
+      return { status: HttpStatus.OK, message: RESPONSE_MESSAGES.SHARES_BOUGHT_SUCCESS };
+    }
   }
 
   public async sellShare(
     payload: SellShareRequest,
   ): Promise<SellShareResponse> {
+    try{
     const { userId, companyId, sharesToSell, askPrice } = payload;
     const userIdObj = new mongoose.Types.ObjectId(userId);
     const companyIdObj = new mongoose.Types.ObjectId(companyId);
@@ -287,6 +408,37 @@ export class OrdersService implements OnModuleInit {
     if (!investment) {
       return { status: HttpStatus.NOT_FOUND, message: RESPONSE_MESSAGES.INVESTMENT_NOT_FOUND };
     }
+
+    const totalSharesOwned = investment.myShares.length;
+    const soldSharesCount = await this.sellOrdersModel.aggregate([
+      {
+        $match: {
+          userId: userIdObj,
+          companyId: companyIdObj,
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          soldSharesCount: {$size: '$pendingShares'},
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalSoldShares: { $sum: '$soldSharesCount' },
+        },
+      },
+    ]);
+
+    const soldShares = soldSharesCount.length > 0 ? soldSharesCount[0].totalSoldShares : 0;
+
+    const remainingShares = totalSharesOwned - soldShares;
+
+    if (sharesToSell > remainingShares) {
+      return { status: HttpStatus.BAD_REQUEST, message: RESPONSE_MESSAGES.TOO_MANY_SHARES_TO_SELL };
+    }
+
     const myShares = investment.myShares.slice(0, sharesToSell);
 
     const sellOrder = new this.sellOrdersModel({
@@ -303,5 +455,9 @@ export class OrdersService implements OnModuleInit {
       status: HttpStatus.OK,
       message: RESPONSE_MESSAGES.SHARES_SOLD_SUCCESS,
     };
+  }catch (error){
+    console.error('Error selling shares:', error);
+    return { status: HttpStatus.INTERNAL_SERVER_ERROR, message: 'Error selling shares' };
+  }
   }
 }
